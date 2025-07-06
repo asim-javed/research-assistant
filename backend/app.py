@@ -84,14 +84,18 @@ def create_inquiry():
     data = request.get_json()
     title = data.get("title", "").strip()
     description = data.get("description", "").strip()
+    reference_sets = data.get("reference_sets", [])
     
     if not title:
         return jsonify({"success": False, "error": "Title is required"}), 400
     
+    if not reference_sets:
+        return jsonify({"success": False, "error": "At least one reference set is required"}), 400
+    
     # In a real app, you'd save to Supabase here
     # For now, just return success
-    print(f"Creating inquiry: {title} - {description}")
-    return jsonify({"success": True, "message": "Inquiry created", "inquiry_id": "new_inquiry_id"})
+    print(f"Creating inquiry: {title} - {description} with reference sets: {reference_sets}")
+    return jsonify({"success": True, "message": "Inquiry created", "inquiry_id": f"inquiry_{len(title)}_id"})
 
 @app.route("/api/upload", methods=["POST"])
 def upload_file():
@@ -111,14 +115,33 @@ def chat():
     data = request.get_json()
     query = data.get("query", "")
     reference_sets = data.get("reference_sets", [])
+    inquiry_id = data.get("inquiry_id", "")
+    
+    if not query:
+        return jsonify({"error": "Query is required"}), 400
     
     # TODO: Query Pinecone, get relevant chunks, generate response with OpenAI
-    response = "This is a placeholder response for: " + query
+    # For now, provide a more detailed placeholder response
+    response = f"""Based on your query "{query}" and the selected reference sets {reference_sets}, here's what I found:
+
+This is a placeholder response that demonstrates the chat functionality. In a full implementation, this would:
+
+1. Query the Pinecone vector database for relevant document chunks
+2. Use the retrieved context with OpenAI's GPT model to generate a response
+3. Return citations and sources from your reference sets
+
+Your query was processed against reference sets: {', '.join(reference_sets) if reference_sets else 'None'}
+    """
+    
+    # Mock citations for demonstration
+    mock_citations = [
+        f"Document from reference set: {ref_set}" for ref_set in reference_sets[:2]
+    ]
     
     return jsonify({
         "response": response,
-        "citations": [],
-        "sources": []
+        "citations": mock_citations,
+        "sources": reference_sets
     })
 
 @app.route("/", defaults={"path": ""})

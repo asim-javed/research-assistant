@@ -10,6 +10,7 @@ function App() {
   const [message, setMessage] = useState("");
   const [showCreateRefSetModal, setShowCreateRefSetModal] = useState(false);
   const [showCreateInquiryModal, setShowCreateInquiryModal] = useState(false);
+  const [activeInquiry, setActiveInquiry] = useState(null);
 
   useEffect(() => {
     // Check if user is logged in
@@ -124,26 +125,48 @@ function App() {
     }
   };
 
-  const handleCreateInquiry = async (title, description) => {
+  const handleCreateInquiry = async (title, description, selectedReferenceSets) => {
     try {
       const response = await fetch("/api/inquiries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description })
+        body: JSON.stringify({ 
+          title, 
+          description, 
+          reference_sets: selectedReferenceSets 
+        })
       });
       
       const data = await response.json();
       if (data.success) {
-        // Reload data to get the new inquiry
-        loadUserData();
+        // Open the new inquiry directly
+        const newInquiry = {
+          id: data.inquiry_id,
+          title,
+          description,
+          reference_sets: selectedReferenceSets,
+          messages: []
+        };
+        setActiveInquiry(newInquiry);
         setShowCreateInquiryModal(false);
-        setCurrentView("inquiries");
+        setCurrentView("chat");
+        loadUserData();
       } else {
         setMessage("Failed to create inquiry: " + data.error);
       }
     } catch (error) {
       setMessage("Error creating inquiry: " + error.message);
     }
+  };
+
+  const openInquiry = (inquiry) => {
+    setActiveInquiry(inquiry);
+    setCurrentView("chat");
+  };
+
+  const closeInquiry = () => {
+    setActiveInquiry(null);
+    setCurrentView("inquiries");
   };
 
   if (currentView === "login") {
@@ -184,7 +207,8 @@ function App() {
       <main className="main-content">
         {currentView === "dashboard" && <Dashboard referenceSets={referenceSets} inquiries={inquiries} onCreateReferenceSet={createReferenceSet} onStartInquiry={startInquiry} />}
         {currentView === "reference-sets" && <ReferenceSets referenceSets={referenceSets} onCreateReferenceSet={createReferenceSet} />}
-        {currentView === "inquiries" && <Inquiries inquiries={inquiries} referenceSets={referenceSets} onStartInquiry={startInquiry} />}
+        {currentView === "inquiries" && <Inquiries inquiries={inquiries} referenceSets={referenceSets} onStartInquiry={startInquiry} onOpenInquiry={openInquiry} />}
+        {currentView === "chat" && activeInquiry && <InquiryChat inquiry={activeInquiry} onClose={closeInquiry} />}
       </main>
 
       {showCreateRefSetModal && (
@@ -198,6 +222,7 @@ function App() {
         <CreateInquiryModal 
           onClose={() => setShowCreateInquiryModal(false)}
           onSubmit={handleCreateInquiry}
+          referenceSets={referenceSets}
         />
       )}
     </div>
@@ -296,7 +321,7 @@ function ReferenceSets({ referenceSets, onCreateReferenceSet }) {
   );
 }
 
-function Inquiries({ inquiries, referenceSets, onStartInquiry }) {
+function Inquiries({ inquiries, referenceSets, onStartInquiry, onOpenInquiry }) {
   return (
     <div className="inquiries">
       <h2>Lines of Inquiry</h2>
@@ -306,9 +331,14 @@ function Inquiries({ inquiries, referenceSets, onStartInquiry }) {
       ) : (
         <div className="inquiries-list">
           {inquiries.map((inquiry, index) => (
-            <div key={index} className="inquiry-card">
+            <div key={index} className="inquiry-card" onClick={() => onOpenInquiry(inquiry)}>
               <h3>{inquiry.title}</h3>
               <p>{inquiry.description}</p>
+              <div className="inquiry-actions">
+                <button onClick={(e) => { e.stopPropagation(); onOpenInquiry(inquiry); }}>
+                  Open Chat
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -356,15 +386,24 @@ function CreateReferenceSetModal({ onClose, onSubmit }) {
   );
 }
 
-function CreateInquiryModal({ onClose, onSubmit }) {
+function CreateInquiryModal({ onClose, onSubmit, referenceSets }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [selectedReferenceSets, setSelectedReferenceSets] = useState([]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (title.trim()) {
-      onSubmit(title.trim(), description.trim());
+    if (title.trim() && selectedReferenceSets.length > 0) {
+      onSubmit(title.trim(), description.trim(), selectedReferenceSets);
     }
+  };
+
+  const toggleReferenceSet = (refSetId) => {
+    setSelectedReferenceSets(prev => 
+      prev.includes(refSetId) 
+        ? prev.filter(id => id !== refSetId)
+        : [...prev, refSetId]
+    );
   };
 
   return (
@@ -385,10 +424,150 @@ function CreateInquiryModal({ onClose, onSubmit }) {
             onChange={(e) => setDescription(e.target.value)}
             rows="3"
           />
+          
+          <div className="reference-sets-selection">
+            <h4>Select Reference Sets to Query:</h4>
+            {referenceSets.length === 0 ? (
+              <p>No reference sets available. Create one first!</p>
+            ) : (
+              <div className="reference-sets-checkboxes">
+                {referenceSets.map((refSet) => (
+                  <label key={refSet.id} className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={selectedReferenceSets.includes(refSet.id)}
+                      onChange={() => toggleReferenceSet(refSet.id)}
+                    />
+                    {refSet.name}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+          
           <div className="modal-buttons">
             <button type="button" onClick={onClose}>Cancel</button>
-            <button type="submit">Start Inquiry</button>
+            <button type="submit" disabled={selectedReferenceSets.length === 0}>
+              Start Inquiry
+            </button>
           </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function InquiryChat({ inquiry, onClose }) {
+  const [messages, setMessages] = useState(inquiry.messages || []);
+  const [inputMessage, setInputMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const sendMessage = async (e) => {
+    e.preventDefault();
+    if (!inputMessage.trim() || isLoading) return;
+
+    const userMessage = {
+      role: "user",
+      content: inputMessage.trim(),
+      timestamp: new Date().toISOString()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInputMessage("");
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          inquiry_id: inquiry.id,
+          query: userMessage.content,
+          reference_sets: inquiry.reference_sets
+        })
+      });
+
+      const data = await response.json();
+      
+      const assistantMessage = {
+        role: "assistant",
+        content: data.response,
+        citations: data.citations || [],
+        sources: data.sources || [],
+        timestamp: new Date().toISOString()
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      const errorMessage = {
+        role: "assistant",
+        content: "Sorry, I encountered an error while processing your query. Please try again.",
+        timestamp: new Date().toISOString()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="inquiry-chat">
+      <div className="chat-header">
+        <h2>{inquiry.title}</h2>
+        <div className="chat-controls">
+          <span>Reference Sets: {inquiry.reference_sets?.join(", ") || "None"}</span>
+          <button onClick={onClose} className="close-chat-btn">Close</button>
+        </div>
+      </div>
+      
+      <div className="chat-container">
+        <div className="chat-messages">
+          {messages.length === 0 && (
+            <div className="welcome-message">
+              <p>Welcome to your inquiry: <strong>{inquiry.title}</strong></p>
+              <p>Ask questions about your selected reference sets and I'll help you find relevant information.</p>
+            </div>
+          )}
+          
+          {messages.map((message, index) => (
+            <div key={index} className={`message ${message.role}`}>
+              <div className="message-content">
+                {message.content}
+              </div>
+              {message.citations && message.citations.length > 0 && (
+                <div className="message-citations">
+                  <h4>Sources:</h4>
+                  <ul>
+                    {message.citations.map((citation, i) => (
+                      <li key={i}>{citation}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div className="message-timestamp">
+                {new Date(message.timestamp).toLocaleTimeString()}
+              </div>
+            </div>
+          ))}
+          
+          {isLoading && (
+            <div className="message assistant loading">
+              <div className="message-content">Thinking...</div>
+            </div>
+          )}
+        </div>
+        
+        <form onSubmit={sendMessage} className="chat-input">
+          <input
+            type="text"
+            placeholder="Ask a question about your reference sets..."
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            disabled={isLoading}
+          />
+          <button type="submit" disabled={isLoading || !inputMessage.trim()}>
+            Send
+          </button>
         </form>
       </div>
     </div>
