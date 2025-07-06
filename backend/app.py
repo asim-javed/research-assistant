@@ -13,6 +13,7 @@ from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling.document_converter import PdfFormatOption
 import tempfile
 from werkzeug.utils import secure_filename
+from replit import db
 
 load_dotenv()
 
@@ -31,9 +32,32 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 # Initialize Docling converter
 converter = DocumentConverter()
 
-# In-memory storage (replace with Supabase later)
-reference_sets_storage = {}
-inquiries_storage = {}
+# Persistent storage using Replit Key-Value Store
+def get_reference_sets():
+    """Get all reference sets from persistent storage"""
+    try:
+        return db.get("reference_sets", {})
+    except:
+        return {}
+
+def save_reference_set(ref_set_id, reference_set):
+    """Save reference set to persistent storage"""
+    reference_sets = get_reference_sets()
+    reference_sets[ref_set_id] = reference_set
+    db["reference_sets"] = reference_sets
+
+def get_inquiries():
+    """Get all inquiries from persistent storage"""
+    try:
+        return db.get("inquiries", {})
+    except:
+        return {}
+
+def save_inquiry(inquiry_id, inquiry):
+    """Save inquiry to persistent storage"""
+    inquiries = get_inquiries()
+    inquiries[inquiry_id] = inquiry
+    db["inquiries"] = inquiries
 
 # Get or create Pinecone index
 PINECONE_INDEX_NAME = "research-assistant"
@@ -91,9 +115,10 @@ def signup():
         return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route("/api/reference-sets", methods=["GET"])
-def get_reference_sets():
+def api_get_reference_sets():
     # Return stored reference sets
-    reference_sets_list = list(reference_sets_storage.values())
+    reference_sets_dict = get_reference_sets()
+    reference_sets_list = list(reference_sets_dict.values())
     return jsonify({"reference_sets": reference_sets_list})
 
 @app.route("/api/reference-sets", methods=["POST"])
@@ -115,15 +140,16 @@ def create_reference_set():
         "description": description,
         "file_count": 0
     }
-    reference_sets_storage[ref_set_id] = reference_set
+    save_reference_set(ref_set_id, reference_set)
 
     print(f"Creating reference set with domain: {domain} - {description}")
     return jsonify({"success": True, "message": "Reference set created", "id": ref_set_id, "domain": domain})
 
 @app.route("/api/inquiries", methods=["GET"])
-def get_inquiries():
+def api_get_inquiries():
     # Return stored inquiries
-    inquiries_list = list(inquiries_storage.values())
+    inquiries_dict = get_inquiries()
+    inquiries_list = list(inquiries_dict.values())
     return jsonify({"inquiries": inquiries_list})
 
 @app.route("/api/inquiries", methods=["POST"])
@@ -150,7 +176,7 @@ def create_inquiry():
         "reference_sets": reference_sets,
         "messages": []
     }
-    inquiries_storage[inquiry_id] = inquiry
+    save_inquiry(inquiry_id, inquiry)
 
     print(f"Creating inquiry: {title} - {description} with reference sets: {reference_sets}")
     return jsonify({"success": True, "message": "Inquiry created", "inquiry_id": inquiry_id})
@@ -317,9 +343,11 @@ def upload_file_to_reference_set(ref_set_id):
         os.remove(temp_path)
 
         # Update file count for the reference set (fix: always increment, even if embeddings failed)
-        if ref_set_id in reference_sets_storage:
-            reference_sets_storage[ref_set_id]["file_count"] += 1
-            print(f"Updated file count for reference set {ref_set_id}: {reference_sets_storage[ref_set_id]['file_count']} files")
+        reference_sets = get_reference_sets()
+        if ref_set_id in reference_sets:
+            reference_sets[ref_set_id]["file_count"] += 1
+            save_reference_set(ref_set_id, reference_sets[ref_set_id])
+            print(f"Updated file count for reference set {ref_set_id}: {reference_sets[ref_set_id]['file_count']} files")
 
         print(f"Successfully processed {filename}: {total_chunks} chunks across {len(pages_info)} pages")
 
@@ -505,6 +533,61 @@ def process_json_file(file_path):
     except Exception as e:
         print(f"Error processing JSON file: {e}")
         return []
+
+@app.route("/api/test-search", methods=["POST"])
+def test_search():
+    """Test search functionality without affecting anything"""
+    data = request.get_json()
+    query = data.get("query", "")
+    ref_set_id = data.get("ref_set_id", "")
+
+    if not query:
+        return jsonify({"error": "Query is required"}), 400
+
+    try:
+        # Get embedding for the query
+        query_embedding = get_embedding(query)
+        if not query_embedding:
+            return jsonify({"error": "Failed to generate query embedding"}), 500
+
+        # Search Pinecone for relevant chunks
+        relevant_results = []
+
+        if index and query_embedding:
+            # Query Pinecone
+            search_results = index.query(
+                vector=query_embedding,
+                top_k=3,  # Just get top 3 for testing
+                include_metadata=True,
+                filter={
+                    "reference_set_id": ref_set_id
+                } if ref_set_id else None
+            )
+
+            # Extract relevant chunks with all metadata
+            for i, match in enumerate(search_results.matches):
+                metadata = match.metadata
+                relevant_results.append({
+                    "rank": i + 1,
+                    "score": float(match.score),
+                    "text_preview": metadata.get('text', '')[:200] + "..." if len(metadata.get('text', '')) > 200 else metadata.get('text', ''),
+                    "document": metadata.get('document_name', 'Unknown'),
+                    "domain": metadata.get('domain', 'Unknown'),
+                    "page_number": metadata.get('page_number', 'N/A'),
+                    "chunk_index": metadata.get('chunk_index', 'N/A'),
+                    "metadata_keys": list(metadata.keys())
+                })
+
+        return jsonify({
+            "query": query,
+            "results_found": len(relevant_results),
+            "results": relevant_results,
+            "ref_set_filter": ref_set_id if ref_set_id else "No filter (all reference sets)"
+        })
+
+    except Exception as e:
+        print(f"Test search error: {e}")
+        return jsonify({"error": f"Search test failed: {str(e)}"}), 500
 
 @app.route("/api/chat", methods=["POST"])
 def chat():

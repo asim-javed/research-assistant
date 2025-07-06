@@ -201,12 +201,19 @@ function App() {
         >
           Lines of Inquiry
         </button>
+        <button 
+          className={currentView === "test" ? "active" : ""}
+          onClick={() => setCurrentView("test")}
+        >
+          Test Search
+        </button>
       </nav>
 
       <main className="main-content">
         {currentView === "dashboard" && <Dashboard referenceSets={referenceSets} inquiries={inquiries} onCreateReferenceSet={createReferenceSet} onStartInquiry={startInquiry} />}
         {currentView === "reference-sets" && <ReferenceSets referenceSets={referenceSets} onCreateReferenceSet={createReferenceSet} />}
         {currentView === "inquiries" && <Inquiries inquiries={inquiries} referenceSets={referenceSets} onStartInquiry={startInquiry} onOpenInquiry={openInquiry} />}
+        {currentView === "test" && <TestSearch referenceSets={referenceSets} />}
         {currentView === "chat" && activeInquiry && <InquiryChat inquiry={activeInquiry} onClose={closeInquiry} />}
       </main>
 
@@ -445,6 +452,109 @@ function CreateReferenceSetModal({ onClose, onSubmit }) {
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+function TestSearch({ referenceSets }) {
+  const [query, setQuery] = useState("");
+  const [selectedRefSet, setSelectedRefSet] = useState("");
+  const [results, setResults] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    if (!query.trim()) return;
+
+    setLoading(true);
+    try {
+      const response = await fetch("/api/test-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          query: query.trim(),
+          ref_set_id: selectedRefSet 
+        })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setResults(data);
+      } else {
+        setResults({ error: data.error });
+      }
+    } catch (error) {
+      setResults({ error: "Search failed: " + error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="test-search">
+      <h2>Test Search (Non-Destructive)</h2>
+      <p>Test your embeddings and search functionality without affecting your data.</p>
+      
+      <form onSubmit={handleSearch} className="test-form">
+        <div className="search-controls">
+          <input
+            type="text"
+            placeholder="Enter search query (e.g., 'prayer', 'mercy', 'guidance')"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="search-input"
+          />
+          
+          <select 
+            value={selectedRefSet} 
+            onChange={(e) => setSelectedRefSet(e.target.value)}
+            className="ref-set-select"
+          >
+            <option value="">All Reference Sets</option>
+            {referenceSets.map(refSet => (
+              <option key={refSet.id} value={refSet.id}>
+                {refSet.domain} ({refSet.file_count} files)
+              </option>
+            ))}
+          </select>
+          
+          <button type="submit" disabled={loading || !query.trim()}>
+            {loading ? "Searching..." : "Test Search"}
+          </button>
+        </div>
+      </form>
+
+      {results && (
+        <div className="search-results">
+          {results.error ? (
+            <div className="error">Error: {results.error}</div>
+          ) : (
+            <div>
+              <h3>Search Results for: "{results.query}"</h3>
+              <p>Found {results.results_found} results in {results.ref_set_filter}</p>
+              
+              {results.results.map((result, index) => (
+                <div key={index} className="result-card">
+                  <div className="result-header">
+                    <span className="rank">#{result.rank}</span>
+                    <span className="score">Score: {result.score.toFixed(4)}</span>
+                    <span className="source">{result.document}</span>
+                  </div>
+                  <div className="result-content">
+                    <p>{result.text_preview}</p>
+                  </div>
+                  <div className="result-meta">
+                    <span>Domain: {result.domain}</span>
+                    <span>Page: {result.page_number}</span>
+                    <span>Chunk: {result.chunk_index}</span>
+                    <span>Metadata fields: {result.metadata_keys.join(", ")}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
