@@ -461,6 +461,8 @@ function TestSearch({ referenceSets }) {
   const [selectedRefSet, setSelectedRefSet] = useState("");
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [topK, setTopK] = useState(5);
+  const [minScore, setMinScore] = useState(0.7);
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -473,7 +475,9 @@ function TestSearch({ referenceSets }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           query: query.trim(),
-          ref_set_id: selectedRefSet 
+          ref_set_id: selectedRefSet,
+          top_k: topK,
+          min_score: minScore
         })
       });
 
@@ -517,6 +521,32 @@ function TestSearch({ referenceSets }) {
               </option>
             ))}
           </select>
+
+          <div className="search-params">
+            <label>
+              Max Results: 
+              <input 
+                type="number" 
+                min="1" 
+                max="20" 
+                value={topK} 
+                onChange={(e) => setTopK(parseInt(e.target.value))}
+                className="param-input"
+              />
+            </label>
+            <label>
+              Min Score: 
+              <input 
+                type="number" 
+                min="0" 
+                max="1" 
+                step="0.1" 
+                value={minScore} 
+                onChange={(e) => setMinScore(parseFloat(e.target.value))}
+                className="param-input"
+              />
+            </label>
+          </div>
           
           <button type="submit" disabled={loading || !query.trim()}>
             {loading ? "Searching..." : "Test Search"}
@@ -531,13 +561,14 @@ function TestSearch({ referenceSets }) {
           ) : (
             <div>
               <h3>Search Results for: "{results.query}"</h3>
-              <p>Found {results.results_found} results in {results.ref_set_filter}</p>
+              <p>Found {results.results_found} results out of {results.total_candidates} candidates in {results.ref_set_filter}</p>
+              <p>Minimum similarity score: {results.min_score_used}</p>
               
               {results.results.map((result, index) => (
                 <div key={index} className="result-card">
                   <div className="result-header">
                     <span className="rank">#{result.rank}</span>
-                    <span className="score">Score: {result.score.toFixed(4)}</span>
+                    <span className="score">Score: {result.score.toFixed(4)} ({result.score_quality})</span>
                     {result.verse_reference && (
                       <span className="verse-ref">{result.verse_reference}</span>
                     )}

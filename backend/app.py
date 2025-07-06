@@ -603,6 +603,8 @@ def test_search():
     data = request.get_json()
     query = data.get("query", "")
     ref_set_id = data.get("ref_set_id", "")
+    top_k = data.get("top_k", 5)  # Allow configurable result count
+    min_score = data.get("min_score", 0.7)  # Only return results above this similarity score
 
     if not query:
         return jsonify({"error": "Query is required"}), 400
@@ -620,16 +622,38 @@ def test_search():
             # Query Pinecone
             search_results = index.query(
                 vector=query_embedding,
-                top_k=3,  # Just get top 3 for testing
+                top_k=max(top_k, 10),  # Get more results to filter by score
                 include_metadata=True,
                 filter={
                     "reference_set_id": ref_set_id
                 } if ref_set_id else None
             )
 
-            # Extract relevant chunks with all metadata
-            for i, match in enumerate(search_results.matches):
+            # Extract relevant chunks with all metadata, filtering by minimum score
+            filtered_matches = [match for match in search_results.matches if match.score >= min_score]
+            
+            # If no matches meet the minimum score, take the top result anyway but mark it
+            if not filtered_matches and search_results.matches:
+                filtered_matches = [search_results.matches[0]]
+                
+            # Limit to requested number of results
+            filtered_matches = filtered_matches[:top_k]
+            
+            for i, match in enumerate(filtered_matches):
                 metadata = match.metadata
+                score = float(match.score)
+                
+                # Determine score quality
+                if score >= 0.9:
+                    score_quality = "Excellent match"
+                elif score >= 0.8:
+                    score_quality = "Very good match"
+                elif score >= 0.7:
+                    score_quality = "Good match"
+                elif score >= 0.6:
+                    score_quality = "Fair match"
+                else:
+                    score_quality = "Poor match"
                 
                 # Extract Quran-specific information
                 arabic_text = metadata.get('arabic', '')
@@ -667,7 +691,8 @@ def test_search():
                 
                 relevant_results.append({
                     "rank": i + 1,
-                    "score": float(match.score),
+                    "score": score,
+                    "score_quality": score_quality,
                     "text_preview": formatted_text[:400] + "..." if len(formatted_text) > 400 else formatted_text,
                     "full_text": formatted_text,
                     "arabic": arabic_text,
@@ -685,6 +710,8 @@ def test_search():
         return jsonify({
             "query": query,
             "results_found": len(relevant_results),
+            "total_candidates": len(search_results.matches) if index and query_embedding else 0,
+            "min_score_used": min_score,
             "results": relevant_results,
             "ref_set_filter": ref_set_id if ref_set_id else "No filter (all reference sets)"
         })
