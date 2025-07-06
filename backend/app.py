@@ -250,8 +250,12 @@ def upload_file_to_reference_set(ref_set_id):
         # Process each page
         total_chunks = 0
         vectors_to_upsert = []
+        
+        print(f"Processing {len(pages_info)} pages/entries from {filename}...")
 
-        for page_info in pages_info:
+        for idx, page_info in enumerate(pages_info):
+            if idx % 10 == 0:  # Log progress every 10 pages
+                print(f"  Processing entry {idx + 1}/{len(pages_info)}...")
             page_text = page_info['text']
             page_num = page_info['page_num']
             metadata = page_info.get('metadata', {})
@@ -267,6 +271,7 @@ def upload_file_to_reference_set(ref_set_id):
                 # Get embedding
                 embedding = get_embedding(chunk)
                 if not embedding:
+                    print(f"    Failed to get embedding for chunk {i} on page {page_num}")
                     continue
 
                 # Create unique ID for this chunk
@@ -294,17 +299,27 @@ def upload_file_to_reference_set(ref_set_id):
 
         # Upsert to Pinecone in batches
         if index and vectors_to_upsert:
+            print(f"Uploading {len(vectors_to_upsert)} chunks to vector database...")
             batch_size = 100
             for i in range(0, len(vectors_to_upsert), batch_size):
                 batch = vectors_to_upsert[i:i + batch_size]
-                index.upsert(vectors=batch)
+                try:
+                    index.upsert(vectors=batch)
+                    print(f"  Uploaded batch {i//batch_size + 1}/{(len(vectors_to_upsert) + batch_size - 1)//batch_size}")
+                except Exception as e:
+                    print(f"  Error uploading batch: {e}")
+        elif not index:
+            print("Warning: No Pinecone index available - content processed but not stored for search")
+        elif not vectors_to_upsert:
+            print("Warning: No valid chunks created - check OpenAI API connection")
 
         # Clean up temp file
         os.remove(temp_path)
 
-        # Update file count for the reference set
+        # Update file count for the reference set (fix: always increment, even if embeddings failed)
         if ref_set_id in reference_sets_storage:
             reference_sets_storage[ref_set_id]["file_count"] += 1
+            print(f"Updated file count for reference set {ref_set_id}: {reference_sets_storage[ref_set_id]['file_count']} files")
 
         print(f"Successfully processed {filename}: {total_chunks} chunks across {len(pages_info)} pages")
 
