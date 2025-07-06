@@ -32,6 +32,10 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 # Initialize Docling converter
 converter = DocumentConverter()
 
+# In-memory storage (replace with Supabase later)
+reference_sets_storage = {}
+inquiries_storage = {}
+
 # Get or create Pinecone index
 PINECONE_INDEX_NAME = "research-assistant"
 if pinecone_client:
@@ -89,12 +93,9 @@ def signup():
 
 @app.route("/api/reference-sets", methods=["GET"])
 def get_reference_sets():
-    # For now, return mock data - in a real app you'd get from Supabase based on user ID
-    mock_data = [
-        {"id": "1", "domain": "Machine Learning", "description": "Papers and documents about ML algorithms", "file_count": 0},
-        {"id": "2", "domain": "Medical Research", "description": "Clinical studies and medical literature", "file_count": 0}
-    ]
-    return jsonify({"reference_sets": mock_data})
+    # Return stored reference sets
+    reference_sets_list = list(reference_sets_storage.values())
+    return jsonify({"reference_sets": reference_sets_list})
 
 @app.route("/api/reference-sets", methods=["POST"])
 def create_reference_set():
@@ -108,18 +109,23 @@ def create_reference_set():
     # Generate unique ID for the reference set
     ref_set_id = str(uuid.uuid4())
     
-    # In a real app, you'd save to Supabase here
-    # For now, just return success
+    # Store the reference set
+    reference_set = {
+        "id": ref_set_id,
+        "domain": domain,
+        "description": description,
+        "file_count": 0
+    }
+    reference_sets_storage[ref_set_id] = reference_set
+    
     print(f"Creating reference set with domain: {domain} - {description}")
     return jsonify({"success": True, "message": "Reference set created", "id": ref_set_id, "domain": domain})
 
 @app.route("/api/inquiries", methods=["GET"])
 def get_inquiries():
-    # For now, return mock data - in a real app you'd get from Supabase based on user ID
-    mock_data = [
-        {"id": "1", "title": "Sample Inquiry", "description": "A sample inquiry for testing"}
-    ]
-    return jsonify({"inquiries": mock_data})
+    # Return stored inquiries
+    inquiries_list = list(inquiries_storage.values())
+    return jsonify({"inquiries": inquiries_list})
 
 @app.route("/api/inquiries", methods=["POST"])
 def create_inquiry():
@@ -134,10 +140,21 @@ def create_inquiry():
     if not reference_sets:
         return jsonify({"success": False, "error": "At least one reference set is required"}), 400
     
-    # In a real app, you'd save to Supabase here
-    # For now, just return success
+    # Generate unique ID for the inquiry
+    inquiry_id = str(uuid.uuid4())
+    
+    # Store the inquiry
+    inquiry = {
+        "id": inquiry_id,
+        "title": title,
+        "description": description,
+        "reference_sets": reference_sets,
+        "messages": []
+    }
+    inquiries_storage[inquiry_id] = inquiry
+    
     print(f"Creating inquiry: {title} - {description} with reference sets: {reference_sets}")
-    return jsonify({"success": True, "message": "Inquiry created", "inquiry_id": f"inquiry_{len(title)}_id"})
+    return jsonify({"success": True, "message": "Inquiry created", "inquiry_id": inquiry_id})
 
 def get_embedding(text):
     """Get OpenAI embedding for text"""
@@ -267,6 +284,10 @@ def upload_file_to_reference_set(ref_set_id):
         
         # Clean up temp file
         os.remove(temp_path)
+        
+        # Update file count for the reference set
+        if ref_set_id in reference_sets_storage:
+            reference_sets_storage[ref_set_id]["file_count"] += 1
         
         print(f"Successfully processed {filename}: {total_chunks} chunks across {len(pages_info)} pages")
         
