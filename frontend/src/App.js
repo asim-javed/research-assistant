@@ -103,12 +103,12 @@ function App() {
     setShowCreateInquiryModal(true);
   };
 
-  const handleCreateReferenceSet = async (name, description) => {
+  const handleCreateReferenceSet = async (domain, description) => {
     try {
       const response = await fetch("/api/reference-sets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description })
+        body: JSON.stringify({ domain, description })
       });
       
       const data = await response.json();
@@ -301,18 +301,82 @@ function Dashboard({ referenceSets, inquiries, onCreateReferenceSet, onStartInqu
 }
 
 function ReferenceSets({ referenceSets, onCreateReferenceSet }) {
+  const [selectedRefSet, setSelectedRefSet] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState("");
+
+  const handleFileUpload = async (event, refSet) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    setUploadMessage("");
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('domain', refSet.domain);
+
+      const response = await fetch(`/api/reference-sets/${refSet.id}/upload`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setUploadMessage(`Successfully processed ${data.stats.filename}: ${data.stats.chunks} chunks across ${data.stats.pages} pages`);
+      } else {
+        setUploadMessage(`Upload failed: ${data.error}`);
+      }
+    } catch (error) {
+      setUploadMessage(`Upload error: ${error.message}`);
+    } finally {
+      setUploading(false);
+      // Clear the file input
+      event.target.value = '';
+    }
+  };
+
   return (
     <div className="reference-sets">
-      <h2>Reference Sets</h2>
+      <h2>Reference Sets (Knowledge Domains)</h2>
       <button className="create-btn" onClick={onCreateReferenceSet}>Create New Reference Set</button>
+      
+      {uploadMessage && (
+        <div className={`upload-message ${uploadMessage.includes('Successfully') ? 'success' : 'error'}`}>
+          {uploadMessage}
+        </div>
+      )}
+      
       {referenceSets.length === 0 ? (
         <p>No reference sets yet. Create one to get started!</p>
       ) : (
         <div className="reference-sets-list">
           {referenceSets.map((set, index) => (
             <div key={index} className="reference-set-card">
-              <h3>{set.name}</h3>
+              <h3>{set.domain}</h3>
               <p>{set.description}</p>
+              <div className="reference-set-stats">
+                <span>Files: {set.file_count || 0}</span>
+              </div>
+              <div className="reference-set-actions">
+                <input
+                  type="file"
+                  id={`file-upload-${set.id}`}
+                  style={{ display: 'none' }}
+                  onChange={(e) => handleFileUpload(e, set)}
+                  accept=".pdf,.docx,.doc,.txt,.md,.pptx,.ppt,.xlsx,.xls"
+                  disabled={uploading}
+                />
+                <button 
+                  onClick={() => document.getElementById(`file-upload-${set.id}`).click()}
+                  disabled={uploading}
+                  className="upload-btn"
+                >
+                  {uploading ? 'Processing...' : 'Upload Document'}
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -348,13 +412,13 @@ function Inquiries({ inquiries, referenceSets, onStartInquiry, onOpenInquiry }) 
 }
 
 function CreateReferenceSetModal({ onClose, onSubmit }) {
-  const [name, setName] = useState("");
+  const [domain, setDomain] = useState("");
   const [description, setDescription] = useState("");
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (name.trim()) {
-      onSubmit(name.trim(), description.trim());
+    if (domain.trim()) {
+      onSubmit(domain.trim(), description.trim());
     }
   };
 
@@ -365,9 +429,9 @@ function CreateReferenceSetModal({ onClose, onSubmit }) {
         <form onSubmit={handleSubmit}>
           <input
             type="text"
-            placeholder="Reference Set Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            placeholder="Knowledge Domain (e.g., Machine Learning, Medicine, History)"
+            value={domain}
+            onChange={(e) => setDomain(e.target.value)}
             required
           />
           <textarea
@@ -442,7 +506,7 @@ function CreateInquiryModal({ onClose, onSubmit, referenceSets }) {
                       checked={selectedReferenceSets.includes(refSet.id)}
                       onChange={() => toggleReferenceSet(refSet.id)}
                     />
-                    {refSet.name}
+                    {refSet.domain}
                   </label>
                 ))}
               </div>
