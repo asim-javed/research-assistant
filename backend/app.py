@@ -483,35 +483,80 @@ def process_json_file(file_path):
 
             # Handle different JSON structures
             if isinstance(json_data, list):
-                # Array of objects
+                # Array of objects - check for Quran surah structure
                 for i, obj in enumerate(json_data):
                     if isinstance(obj, dict):
-                        # Process similar to JSONL
-                        structured_content = {
-                            'index': i,
-                            'raw_data': obj,
-                            'searchable_text': '',
-                            'metadata': {}
-                        }
+                        # Check if this is a Quran surah with ayahs array
+                        if 'ayahs' in obj and isinstance(obj['ayahs'], list):
+                            # Extract surah-level metadata
+                            surah_number = obj.get('Surah Number', i + 1)
+                            surah_name_english = obj.get('Surah Name English', f'Surah {surah_number}')
+                            surah_name_arabic = obj.get('Surah Name Arabic', '')
+                            
+                            # Process each ayah in the surah
+                            for ayah in obj['ayahs']:
+                                if isinstance(ayah, dict):
+                                    text_parts = []
+                                    metadata = {
+                                        'content_type': 'verse',
+                                        'surah_number': surah_number,
+                                        'surah_name_english': surah_name_english,
+                                        'surah_name_arabic': surah_name_arabic,
+                                        'chapter': surah_number,  # For compatibility
+                                    }
+                                    
+                                    # Extract verse number
+                                    if 'ayah' in ayah:
+                                        metadata['verse_number'] = ayah['ayah']
+                                        metadata['ayah'] = ayah['ayah']
+                                    
+                                    # Extract Arabic text
+                                    if 'arabic' in ayah:
+                                        metadata['arabic'] = ayah['arabic']
+                                        text_parts.append(f"Arabic: {ayah['arabic']}")
+                                    
+                                    # Extract English translation
+                                    if 'Clear Quran English' in ayah:
+                                        metadata['english'] = ayah['Clear Quran English']
+                                        text_parts.append(f"English: {ayah['Clear Quran English']}")
+                                    
+                                    # Create searchable text
+                                    searchable_text = ' | '.join(text_parts)
+                                    
+                                    if searchable_text.strip():
+                                        pages_info.append({
+                                            'page_num': f"{surah_number}:{ayah.get('ayah', 'unknown')}",
+                                            'text': searchable_text,
+                                            'metadata': metadata,
+                                            'raw_json': ayah
+                                        })
+                        else:
+                            # Process as regular flat object
+                            structured_content = {
+                                'index': i,
+                                'raw_data': obj,
+                                'searchable_text': '',
+                                'metadata': {}
+                            }
 
-                        # Extract searchable text
-                        text_parts = []
-                        for key, value in obj.items():
-                            if isinstance(value, str) and len(value) > 5:
-                                text_parts.append(f"{key}: {value}")
-                                structured_content['metadata'][key] = value
-                            elif isinstance(value, (int, float, bool)):
-                                structured_content['metadata'][key] = value
+                            # Extract searchable text
+                            text_parts = []
+                            for key, value in obj.items():
+                                if isinstance(value, str) and len(value) > 5:
+                                    text_parts.append(f"{key}: {value}")
+                                    structured_content['metadata'][key] = value
+                                elif isinstance(value, (int, float, bool)):
+                                    structured_content['metadata'][key] = value
 
-                        structured_content['searchable_text'] = ' | '.join(text_parts)
+                            structured_content['searchable_text'] = ' | '.join(text_parts)
 
-                        if structured_content['searchable_text'].strip():
-                            pages_info.append({
-                                'page_num': i + 1,
-                                'text': structured_content['searchable_text'],
-                                'metadata': structured_content['metadata'],
-                                'raw_json': obj
-                            })
+                            if structured_content['searchable_text'].strip():
+                                pages_info.append({
+                                    'page_num': i + 1,
+                                    'text': structured_content['searchable_text'],
+                                    'metadata': structured_content['metadata'],
+                                    'raw_json': obj
+                                })
 
             elif isinstance(json_data, dict):
                 # Single object or nested structure
