@@ -46,9 +46,9 @@ if pinecone_client:
                 dimension=1536,  # OpenAI embedding dimension
                 metric="cosine",
                 spec={
-                    "pod": {
-                        "environment": "gcp-starter",
-                        "pod_type": "starter"
+                    "serverless": {
+                        "cloud": "aws",
+                        "region": "us-east-1"
                     }
                 }
             )
@@ -378,10 +378,16 @@ Please provide a detailed answer based on the context above. If the context does
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def serve_react_app(path):
-    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+    # Handle API routes separately
+    if path.startswith("api/"):
+        return "API endpoint not found", 404
+    
+    # Serve static files
+    if path and os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
-    else:
-        return send_from_directory(app.static_folder, "index.html")
+    
+    # For all other routes, serve React app
+    return send_from_directory(app.static_folder, "index.html")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
