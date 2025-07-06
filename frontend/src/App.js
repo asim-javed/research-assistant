@@ -393,17 +393,21 @@ function CreateInquiryModal({ onClose, onSubmit, referenceSets }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    console.log("Form submitted with:", { title, selectedReferenceSets });
     if (title.trim() && selectedReferenceSets.length > 0) {
       onSubmit(title.trim(), description.trim(), selectedReferenceSets);
     }
   };
 
   const toggleReferenceSet = (refSetId) => {
-    setSelectedReferenceSets(prev => 
-      prev.includes(refSetId) 
+    console.log("Toggling reference set:", refSetId);
+    setSelectedReferenceSets(prev => {
+      const newSelection = prev.includes(refSetId) 
         ? prev.filter(id => id !== refSetId)
-        : [...prev, refSetId]
-    );
+        : [...prev, refSetId];
+      console.log("New selection:", newSelection);
+      return newSelection;
+    });
   };
 
   return (
@@ -447,7 +451,10 @@ function CreateInquiryModal({ onClose, onSubmit, referenceSets }) {
           
           <div className="modal-buttons">
             <button type="button" onClick={onClose}>Cancel</button>
-            <button type="submit" disabled={selectedReferenceSets.length === 0}>
+            <button 
+              type="submit" 
+              disabled={!title.trim() || selectedReferenceSets.length === 0}
+            >
               Start Inquiry
             </button>
           </div>
