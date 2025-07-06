@@ -538,16 +538,34 @@ function TestSearch({ referenceSets }) {
                   <div className="result-header">
                     <span className="rank">#{result.rank}</span>
                     <span className="score">Score: {result.score.toFixed(4)}</span>
+                    {result.verse_reference && (
+                      <span className="verse-ref">{result.verse_reference}</span>
+                    )}
                     <span className="source">{result.document}</span>
                   </div>
                   <div className="result-content">
-                    <p>{result.text_preview}</p>
+                    {result.arabic && (
+                      <div className="arabic-text">
+                        <strong>Arabic:</strong>
+                        <p className="arabic">{result.arabic}</p>
+                      </div>
+                    )}
+                    {result.english && (
+                      <div className="english-text">
+                        <strong>English:</strong>
+                        <p>{result.english}</p>
+                      </div>
+                    )}
+                    {!result.arabic && !result.english && (
+                      <p>{result.text_preview}</p>
+                    )}
                   </div>
                   <div className="result-meta">
                     <span>Domain: {result.domain}</span>
+                    {result.chapter && <span>Chapter: {result.chapter}</span>}
+                    {result.verse_number && <span>Verse: {result.verse_number}</span>}
                     <span>Page: {result.page_number}</span>
                     <span>Chunk: {result.chunk_index}</span>
-                    <span>Metadata fields: {result.metadata_keys.join(", ")}</span>
                   </div>
                 </div>
               ))}

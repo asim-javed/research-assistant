@@ -567,10 +567,44 @@ def test_search():
             # Extract relevant chunks with all metadata
             for i, match in enumerate(search_results.matches):
                 metadata = match.metadata
+                
+                # Extract Quran-specific information
+                arabic_text = metadata.get('arabic', '')
+                english_text = metadata.get('english', '')
+                chapter = metadata.get('chapter', '')
+                verse_number = metadata.get('verse_number', '')
+                
+                # Format display text for Quran verses
+                formatted_text = ""
+                if arabic_text and english_text:
+                    formatted_text = f"Arabic: {arabic_text}\n\nEnglish: {english_text}"
+                elif arabic_text:
+                    formatted_text = f"Arabic: {arabic_text}"
+                elif english_text:
+                    formatted_text = f"English: {english_text}"
+                else:
+                    # Fallback to original text
+                    formatted_text = metadata.get('text', '')
+                
+                # Format verse reference
+                verse_reference = ""
+                if chapter and verse_number:
+                    # Try to get surah name if available
+                    surah_name = metadata.get('surah_name', f"Surah {chapter}")
+                    verse_reference = f"{surah_name} {chapter}:{verse_number}"
+                elif chapter:
+                    verse_reference = f"Chapter {chapter}"
+                
                 relevant_results.append({
                     "rank": i + 1,
                     "score": float(match.score),
-                    "text_preview": metadata.get('text', '')[:200] + "..." if len(metadata.get('text', '')) > 200 else metadata.get('text', ''),
+                    "text_preview": formatted_text[:400] + "..." if len(formatted_text) > 400 else formatted_text,
+                    "full_text": formatted_text,
+                    "arabic": arabic_text,
+                    "english": english_text,
+                    "verse_reference": verse_reference,
+                    "chapter": chapter,
+                    "verse_number": verse_number,
                     "document": metadata.get('document_name', 'Unknown'),
                     "domain": metadata.get('domain', 'Unknown'),
                     "page_number": metadata.get('page_number', 'N/A'),
