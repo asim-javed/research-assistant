@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import "./App.css";
 
@@ -20,7 +19,7 @@ function App() {
       setCurrentView("dashboard");
       loadUserData();
     }
-    
+
     // Test API connection
     fetch("/api/hello")
       .then(res => res.json())
@@ -34,10 +33,10 @@ function App() {
         fetch("/api/reference-sets"),
         fetch("/api/inquiries")
       ]);
-      
+
       const refSets = await refSetsRes.json();
       const inquiriesData = await inquiriesRes.json();
-      
+
       setReferenceSets(refSets.reference_sets);
       setInquiries(inquiriesData.inquiries);
     } catch (error) {
@@ -52,7 +51,7 @@ function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password })
       });
-      
+
       const data = await response.json();
       if (data.success) {
         setUser(data.user);
@@ -74,7 +73,7 @@ function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password })
       });
-      
+
       const data = await response.json();
       if (data.success) {
         setMessage("Account created! Please log in.");
@@ -110,7 +109,7 @@ function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domain, description })
       });
-      
+
       const data = await response.json();
       if (data.success) {
         // Reload data to get the new reference set
@@ -136,7 +135,7 @@ function App() {
           reference_sets: selectedReferenceSets 
         })
       });
-      
+
       const data = await response.json();
       if (data.success) {
         // Open the new inquiry directly
@@ -182,7 +181,7 @@ function App() {
           <button onClick={logout} className="logout-btn">Logout</button>
         </div>
       </header>
-      
+
       <nav className="nav-tabs">
         <button 
           className={currentView === "dashboard" ? "active" : ""}
@@ -323,7 +322,7 @@ function ReferenceSets({ referenceSets, onCreateReferenceSet }) {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         setUploadMessage(`Successfully processed ${data.stats.filename}: ${data.stats.chunks} chunks across ${data.stats.pages} pages`);
       } else {
@@ -342,13 +341,13 @@ function ReferenceSets({ referenceSets, onCreateReferenceSet }) {
     <div className="reference-sets">
       <h2>Reference Sets (Knowledge Domains)</h2>
       <button className="create-btn" onClick={onCreateReferenceSet}>Create New Reference Set</button>
-      
+
       {uploadMessage && (
         <div className={`upload-message ${uploadMessage.includes('Successfully') ? 'success' : 'error'}`}>
           {uploadMessage}
         </div>
       )}
-      
+
       {referenceSets.length === 0 ? (
         <p>No reference sets yet. Create one to get started!</p>
       ) : (
@@ -366,7 +365,7 @@ function ReferenceSets({ referenceSets, onCreateReferenceSet }) {
                   id={`file-upload-${set.id}`}
                   style={{ display: 'none' }}
                   onChange={(e) => handleFileUpload(e, set)}
-                  accept=".pdf,.docx,.doc,.txt,.md,.pptx,.ppt,.xlsx,.xls"
+                  accept=".pdf,.docx,.doc,.txt,.md,.pptx,.ppt,.xlsx,.xls,.json,.jsonl"
                   disabled={uploading}
                 />
                 <button 
@@ -492,7 +491,7 @@ function CreateInquiryModal({ onClose, onSubmit, referenceSets }) {
             onChange={(e) => setDescription(e.target.value)}
             rows="3"
           />
-          
+
           <div className="reference-sets-selection">
             <h4>Select Reference Sets to Query:</h4>
             {referenceSets.length === 0 ? (
@@ -512,7 +511,7 @@ function CreateInquiryModal({ onClose, onSubmit, referenceSets }) {
               </div>
             )}
           </div>
-          
+
           <div className="modal-buttons">
             <button type="button" onClick={onClose}>Cancel</button>
             <button 
@@ -559,7 +558,7 @@ function InquiryChat({ inquiry, onClose }) {
       });
 
       const data = await response.json();
-      
+
       const assistantMessage = {
         role: "assistant",
         content: data.response,
@@ -590,7 +589,7 @@ function InquiryChat({ inquiry, onClose }) {
           <button onClick={onClose} className="close-chat-btn">Close</button>
         </div>
       </div>
-      
+
       <div className="chat-container">
         <div className="chat-messages">
           {messages.length === 0 && (
@@ -599,7 +598,7 @@ function InquiryChat({ inquiry, onClose }) {
               <p>Ask questions about your selected reference sets and I'll help you find relevant information.</p>
             </div>
           )}
-          
+
           {messages.map((message, index) => (
             <div key={index} className={`message ${message.role}`}>
               <div className="message-content">
@@ -620,14 +619,14 @@ function InquiryChat({ inquiry, onClose }) {
               </div>
             </div>
           ))}
-          
+
           {isLoading && (
             <div className="message assistant loading">
               <div className="message-content">Thinking...</div>
             </div>
           )}
         </div>
-        
+
         <form onSubmit={sendMessage} className="chat-input">
           <input
             type="text"

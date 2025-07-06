@@ -1,4 +1,3 @@
-
 from flask import Flask, jsonify, send_from_directory, request
 from flask_cors import CORS
 import os
@@ -102,13 +101,13 @@ def create_reference_set():
     data = request.get_json()
     domain = data.get("domain", "").strip()  # Changed from 'name' to 'domain'
     description = data.get("description", "").strip()
-    
+
     if not domain:
         return jsonify({"success": False, "error": "Domain is required"}), 400
-    
+
     # Generate unique ID for the reference set
     ref_set_id = str(uuid.uuid4())
-    
+
     # Store the reference set
     reference_set = {
         "id": ref_set_id,
@@ -117,7 +116,7 @@ def create_reference_set():
         "file_count": 0
     }
     reference_sets_storage[ref_set_id] = reference_set
-    
+
     print(f"Creating reference set with domain: {domain} - {description}")
     return jsonify({"success": True, "message": "Reference set created", "id": ref_set_id, "domain": domain})
 
@@ -133,16 +132,16 @@ def create_inquiry():
     title = data.get("title", "").strip()
     description = data.get("description", "").strip()
     reference_sets = data.get("reference_sets", [])
-    
+
     if not title:
         return jsonify({"success": False, "error": "Title is required"}), 400
-    
+
     if not reference_sets:
         return jsonify({"success": False, "error": "At least one reference set is required"}), 400
-    
+
     # Generate unique ID for the inquiry
     inquiry_id = str(uuid.uuid4())
-    
+
     # Store the inquiry
     inquiry = {
         "id": inquiry_id,
@@ -152,7 +151,7 @@ def create_inquiry():
         "messages": []
     }
     inquiries_storage[inquiry_id] = inquiry
-    
+
     print(f"Creating inquiry: {title} - {description} with reference sets: {reference_sets}")
     return jsonify({"success": True, "message": "Inquiry created", "inquiry_id": inquiry_id})
 
@@ -172,27 +171,27 @@ def chunk_text(text, max_chunk_size=1000, overlap=100):
     """Split text into overlapping chunks"""
     chunks = []
     start = 0
-    
+
     while start < len(text):
         end = start + max_chunk_size
         chunk = text[start:end]
-        
+
         # Try to break at sentence boundary
         if end < len(text):
             last_period = chunk.rfind('.')
             last_newline = chunk.rfind('\n')
             break_point = max(last_period, last_newline)
-            
+
             if break_point > start + max_chunk_size // 2:
                 chunk = text[start:break_point + 1]
                 end = break_point + 1
-        
+
         chunks.append(chunk.strip())
         start = end - overlap
-        
+
         if start >= len(text):
             break
-    
+
     return chunks
 
 @app.route("/api/reference-sets/<ref_set_id>/upload", methods=["POST"])
@@ -200,97 +199,115 @@ def upload_file_to_reference_set(ref_set_id):
     """Upload and process file for a specific reference set"""
     if 'file' not in request.files:
         return jsonify({"error": "No file provided"}), 400
-    
+
     file = request.files['file']
     if file.filename == '':
         return jsonify({"error": "No file selected"}), 400
-    
+
     # Get domain from form data
     domain = request.form.get('domain', 'Unknown Domain')
-    
+
     try:
         # Save file temporarily
         filename = secure_filename(file.filename)
         temp_path = os.path.join(tempfile.gettempdir(), filename)
         file.save(temp_path)
-        
-        # Process with Docling
+
+        # Check file extension and process accordingly
+        file_extension = filename.split('.')[-1].lower() if '.' in filename else ''
+
         print(f"Processing file: {filename}")
-        result = converter.convert(temp_path)
-        
-        # Extract text and page information
-        document_text = result.document.export_to_markdown()
-        
-        # Get page information if available
-        pages_info = []
-        if hasattr(result.document, 'pages') and result.document.pages:
-            for i, page in enumerate(result.document.pages):
-                pages_info.append({
-                    'page_num': i + 1,
-                    'text': page.export_to_markdown() if hasattr(page, 'export_to_markdown') else str(page)
-                })
+
+        if file_extension == 'jsonl':
+            # Process JSONL file with structure preservation
+            pages_info = process_jsonl_file(temp_path)
+            if not pages_info:
+                raise Exception("No valid JSON objects found in JSONL file")
+        elif file_extension == 'json':
+            # Process JSON file with structure preservation
+            pages_info = process_json_file(temp_path)
+            if not pages_info:
+                raise Exception("No valid data found in JSON file")
         else:
-            # If no page info available, treat as single page
-            pages_info = [{'page_num': 1, 'text': document_text}]
-        
+            # Process with Docling for other formats
+            result = converter.convert(temp_path)
+
+            # Extract text and page information
+            document_text = result.document.export_to_markdown()
+
+            # Get page information if available
+            pages_info = []
+            if hasattr(result.document, 'pages') and result.document.pages:
+                for i, page in enumerate(result.document.pages):
+                    pages_info.append({
+                        'page_num': i + 1,
+                        'text': page.export_to_markdown() if hasattr(page, 'export_to_markdown') else str(page)
+                    })
+            else:
+                # If no page info available, treat as single page
+                pages_info = [{'page_num': 1, 'text': document_text}]
+
         # Process each page
         total_chunks = 0
         vectors_to_upsert = []
-        
+
         for page_info in pages_info:
             page_text = page_info['text']
             page_num = page_info['page_num']
-            
+            metadata = page_info.get('metadata', {})
+            raw_json = page_info.get('raw_json')
+
             # Split page into chunks
             chunks = chunk_text(page_text)
-            
+
             for i, chunk in enumerate(chunks):
                 if len(chunk.strip()) < 50:  # Skip very short chunks
                     continue
-                
+
                 # Get embedding
                 embedding = get_embedding(chunk)
                 if not embedding:
                     continue
-                
+
                 # Create unique ID for this chunk
                 chunk_id = f"{ref_set_id}_{filename}_{page_num}_{i}"
-                
+
                 # Prepare metadata
-                metadata = {
+                chunk_metadata = {
                     'domain': domain,
                     'reference_set_id': ref_set_id,
                     'document_name': filename,
                     'page_number': page_num,
                     'chunk_index': i,
                     'text': chunk,
-                    'file_type': filename.split('.')[-1].lower() if '.' in filename else 'unknown'
+                    'file_type': filename.split('.')[-1].lower() if '.' in filename else 'unknown',
                 }
-                
+                chunk_metadata.update(metadata)  # Add extracted metadata
+
                 vectors_to_upsert.append({
                     'id': chunk_id,
                     'values': embedding,
-                    'metadata': metadata
+                    'metadata': chunk_metadata
                 })
-                
+
                 total_chunks += 1
-        
+
         # Upsert to Pinecone in batches
         if index and vectors_to_upsert:
             batch_size = 100
             for i in range(0, len(vectors_to_upsert), batch_size):
                 batch = vectors_to_upsert[i:i + batch_size]
                 index.upsert(vectors=batch)
-        
+
         # Clean up temp file
         os.remove(temp_path)
-        
+
         # Update file count for the reference set
         if ref_set_id in reference_sets_storage:
             reference_sets_storage[ref_set_id]["file_count"] += 1
-        
+
         print(f"Successfully processed {filename}: {total_chunks} chunks across {len(pages_info)} pages")
-        
+
         return jsonify({
             "success": True, 
             "message": f"File processed successfully",
@@ -301,14 +318,178 @@ def upload_file_to_reference_set(ref_set_id):
                 "domain": domain
             }
         })
-        
+
     except Exception as e:
         # Clean up temp file if it exists
         if 'temp_path' in locals() and os.path.exists(temp_path):
             os.remove(temp_path)
-        
+
         print(f"Error processing file: {e}")
         return jsonify({"error": f"Error processing file: {str(e)}"}), 500
+
+def process_jsonl_file(file_path):
+    """Process JSONL file and preserve structure with metadata"""
+    pages_info = []
+
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            line_num = 0
+
+            for line in file:
+                line = line.strip()
+                if not line:
+                    continue
+
+                line_num += 1
+                try:
+                    json_obj = json.loads(line)
+
+                    # Create structured content that preserves metadata
+                    structured_content = {
+                        'line_number': line_num,
+                        'raw_data': json_obj,
+                        'searchable_text': '',
+                        'metadata': {}
+                    }
+
+                    # Extract searchable text while preserving structure
+                    text_parts = []
+
+                    # Handle different content structures
+                    if 'verse' in json_obj:
+                        # Quran/religious text structure
+                        structured_content['metadata']['content_type'] = 'verse'
+                        if 'chapter' in json_obj:
+                            structured_content['metadata']['chapter'] = json_obj['chapter']
+                        if 'verse_number' in json_obj:
+                            structured_content['metadata']['verse_number'] = json_obj['verse_number']
+
+                        # Add verse content
+                        if isinstance(json_obj['verse'], str):
+                            text_parts.append(f"Verse: {json_obj['verse']}")
+                        elif isinstance(json_obj['verse'], dict):
+                            for lang, text in json_obj['verse'].items():
+                                text_parts.append(f"{lang}: {text}")
+                                structured_content['metadata'][f'verse_{lang}'] = text
+
+                    # Handle translations
+                    for lang_field in ['arabic', 'english', 'translation']:
+                        if lang_field in json_obj:
+                            if isinstance(json_obj[lang_field], str):
+                                text_parts.append(f"{lang_field}: {json_obj[lang_field]}")
+                                structured_content['metadata'][lang_field] = json_obj[lang_field]
+
+                    # Handle general text fields
+                    for field in ['text', 'content', 'title', 'description', 'passage']:
+                        if field in json_obj and isinstance(json_obj[field], str):
+                            text_parts.append(f"{field}: {json_obj[field]}")
+                            structured_content['metadata'][field] = json_obj[field]
+
+                    # Preserve all other metadata
+                    for key, value in json_obj.items():
+                        if key not in ['verse', 'arabic', 'english', 'translation', 'text', 'content', 'title', 'description', 'passage']:
+                            if isinstance(value, (str, int, float, bool)):
+                                structured_content['metadata'][key] = value
+
+                    # Combine all text for searching
+                    structured_content['searchable_text'] = ' | '.join(text_parts)
+
+                    # Create a "page" for each JSON object to maintain granularity
+                    if structured_content['searchable_text'].strip():
+                        pages_info.append({
+                            'page_num': line_num,
+                            'text': structured_content['searchable_text'],
+                            'metadata': structured_content['metadata'],
+                            'raw_json': json_obj
+                        })
+
+                except json.JSONDecodeError as e:
+                    print(f"Invalid JSON on line {line_num}: {e}")
+                    continue
+
+        return pages_info
+
+    except Exception as e:
+        print(f"Error processing JSONL file: {e}")
+        return []
+
+def process_json_file(file_path):
+    """Process JSON file and preserve structure with metadata"""
+    pages_info = []
+
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            json_data = json.load(file)
+
+            # Handle different JSON structures
+            if isinstance(json_data, list):
+                # Array of objects
+                for i, obj in enumerate(json_data):
+                    if isinstance(obj, dict):
+                        # Process similar to JSONL
+                        structured_content = {
+                            'index': i,
+                            'raw_data': obj,
+                            'searchable_text': '',
+                            'metadata': {}
+                        }
+
+                        # Extract searchable text
+                        text_parts = []
+                        for key, value in obj.items():
+                            if isinstance(value, str) and len(value) > 5:
+                                text_parts.append(f"{key}: {value}")
+                                structured_content['metadata'][key] = value
+                            elif isinstance(value, (int, float, bool)):
+                                structured_content['metadata'][key] = value
+
+                        structured_content['searchable_text'] = ' | '.join(text_parts)
+
+                        if structured_content['searchable_text'].strip():
+                            pages_info.append({
+                                'page_num': i + 1,
+                                'text': structured_content['searchable_text'],
+                                'metadata': structured_content['metadata'],
+                                'raw_json': obj
+                            })
+
+            elif isinstance(json_data, dict):
+                # Single object or nested structure
+                def extract_from_dict(data, prefix="", page_num=1):
+                    text_parts = []
+                    metadata = {}
+
+                    for key, value in data.items():
+                        full_key = f"{prefix}.{key}" if prefix else key
+
+                        if isinstance(value, str) and len(value) > 5:
+                            text_parts.append(f"{full_key}: {value}")
+                            metadata[full_key] = value
+                        elif isinstance(value, (int, float, bool)):
+                            metadata[full_key] = value
+                        elif isinstance(value, dict):
+                            # Recursively handle nested objects
+                            nested_text, nested_meta = extract_from_dict(value, full_key, page_num)
+                            text_parts.extend(nested_text)
+                            metadata.update(nested_meta)
+
+                    return text_parts, metadata
+
+                text_parts, metadata = extract_from_dict(json_data)
+
+                if text_parts:
+                    pages_info.append({
+                        'page_num': 1,
+                        'text': ' | '.join(text_parts),
+                        'metadata': metadata,
+                        'raw_json': json_data
+                    })
+
+        return pages_info
+
+    except Exception as e:
+        print(f"Error processing JSON file: {e}")
+        return []
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
@@ -316,20 +497,20 @@ def chat():
     query = data.get("query", "")
     reference_sets = data.get("reference_sets", [])
     inquiry_id = data.get("inquiry_id", "")
-    
+
     if not query:
         return jsonify({"error": "Query is required"}), 400
-    
+
     try:
         # Get embedding for the query
         query_embedding = get_embedding(query)
         if not query_embedding:
             return jsonify({"error": "Failed to generate query embedding"}), 500
-        
+
         # Search Pinecone for relevant chunks
         relevant_chunks = []
         citations = []
-        
+
         if index and query_embedding:
             # Query Pinecone
             search_results = index.query(
@@ -340,19 +521,19 @@ def chat():
                     "reference_set_id": {"$in": reference_sets}
                 } if reference_sets else None
             )
-            
+
             # Extract relevant chunks and build citations
             for match in search_results.matches:
                 metadata = match.metadata
                 relevant_chunks.append(metadata.get('text', ''))
-                
+
                 citation = f"{metadata.get('document_name', 'Unknown')} (Domain: {metadata.get('domain', 'Unknown')}, Page: {metadata.get('page_number', 'N/A')})"
                 if citation not in citations:
                     citations.append(citation)
-        
+
         # Build context from relevant chunks
         context = "\n\n".join(relevant_chunks[:3])  # Use top 3 chunks
-        
+
         if not context:
             response = f"I couldn't find relevant information in the selected reference sets for your query: '{query}'. You may need to upload more documents to these domains or try a different query."
         else:
@@ -378,20 +559,20 @@ Please provide a detailed answer based on the context above. If the context does
                     max_tokens=500,
                     temperature=0.7
                 )
-                
+
                 response = chat_response.choices[0].message.content
-                
+
             except Exception as e:
                 print(f"OpenAI API error: {e}")
                 response = f"I found relevant information but encountered an error generating the response. Here's what I found in the documents: {context[:500]}..."
-        
+
         return jsonify({
             "response": response,
             "citations": citations,
             "sources": reference_sets,
             "chunks_found": len(relevant_chunks)
         })
-        
+
     except Exception as e:
         print(f"Chat error: {e}")
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
@@ -402,11 +583,11 @@ def serve_react_app(path):
     # Handle API routes separately
     if path.startswith("api/"):
         return "API endpoint not found", 404
-    
+
     # Serve static files
     if path and os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
-    
+
     # For all other routes, serve React app
     return send_from_directory(app.static_folder, "index.html")
 
