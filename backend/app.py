@@ -652,10 +652,13 @@ def test_search():
                 verse_reference = ""
                 if chapter and verse_number:
                     # Try to get surah name if available
-                    surah_name = metadata.get('surah_name', f"Surah {chapter}")
-                    verse_reference = f"{surah_name} {chapter}:{verse_number}"
+                    surah_name_english = metadata.get('surah_name_english', '')
+                    if surah_name_english:
+                        verse_reference = f"Surah {surah_name_english} {chapter}:{verse_number}"
+                    else:
+                        verse_reference = f"Surah {chapter} {chapter}:{verse_number}"
                 elif chapter:
-                    verse_reference = f"Chapter {chapter}"
+                    verse_reference = f"Surah {chapter}"
                 
                 relevant_results.append({
                     "rank": i + 1,
