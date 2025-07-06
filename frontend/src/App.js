@@ -17,6 +17,12 @@ function App() {
       setCurrentView("dashboard");
       loadUserData();
     }
+    
+    // Test API connection
+    fetch("/api/hello")
+      .then(res => res.json())
+      .then(data => console.log("API connected:", data.message))
+      .catch(err => console.error("API connection failed:", err));
   }, []);
 
   const loadUserData = async () => {
