@@ -588,7 +588,7 @@ function TestSearch({ referenceSets }) {
                         <p>{result.english}</p>
                       </div>
                     )}
-                    {!result.arabic && !result.english && (
+                    {!result.arabic && !result.english && result.text_preview && (
                       <p>{result.text_preview}</p>
                     )}
                   </div>
