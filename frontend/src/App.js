@@ -521,36 +521,37 @@ function TestSearch({ referenceSets }) {
               </option>
             ))}
           </select>
-
-          <button type="submit" disabled={loading || !query.trim()}>
-            {loading ? "Searching..." : "Test Search"}
-          </button>
         </div>
         
         <div className="search-params">
-          <label>
-            Max Results: 
-            <input 
-              type="number" 
-              min="1" 
-              max="20" 
-              value={topK} 
-              onChange={(e) => setTopK(parseInt(e.target.value))}
-              className="param-input"
-            />
-          </label>
-          <label>
-            Min Score: 
-            <input 
-              type="number" 
-              min="0" 
-              max="1" 
-              step="0.1" 
-              value={minScore} 
-              onChange={(e) => setMinScore(parseFloat(e.target.value))}
-              className="param-input"
-            />
-          </label>
+          <div className="param-group">
+            <label>
+              Max Results: 
+              <input 
+                type="number" 
+                min="1" 
+                max="20" 
+                value={topK} 
+                onChange={(e) => setTopK(parseInt(e.target.value))}
+                className="param-input"
+              />
+            </label>
+            <label>
+              Min Score: 
+              <input 
+                type="number" 
+                min="0" 
+                max="1" 
+                step="0.1" 
+                value={minScore} 
+                onChange={(e) => setMinScore(parseFloat(e.target.value))}
+                className="param-input"
+              />
+            </label>
+          </div>
+          <button type="submit" disabled={loading || !query.trim()} className="search-submit-btn">
+            {loading ? "Searching..." : "Test Search"}
+          </button>
         </div>
       </form>
 
