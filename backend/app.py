@@ -420,7 +420,7 @@ def process_jsonl_file(file_path):
                     # Handle Quran verse structure with ayah, arabic, and English translation
                     if 'ayah' in json_obj:
                         structured_content['metadata']['content_type'] = 'verse'
-                        structured_content['metadata']['verse_number'] = json_obj['ayah']
+                        structured_content['metadata']['verse_number'] = int(json_obj['ayah'])
                         
                         # Store Arabic text
                         if 'arabic' in json_obj:
@@ -489,7 +489,7 @@ def process_json_file(file_path):
                         # Check if this is a Quran surah with ayahs array
                         if 'ayahs' in obj and isinstance(obj['ayahs'], list):
                             # Extract surah-level metadata
-                            surah_number = obj.get('Surah Number', i + 1)
+                            surah_number = int(obj.get('Surah Number', i + 1))
                             surah_name_english = obj.get('Surah Name English', f'Surah {surah_number}')
                             surah_name_arabic = obj.get('Surah Name Arabic', '')
                             
@@ -507,8 +507,9 @@ def process_json_file(file_path):
                                     
                                     # Extract verse number
                                     if 'ayah' in ayah:
-                                        metadata['verse_number'] = ayah['ayah']
-                                        metadata['ayah'] = ayah['ayah']
+                                        verse_number = int(ayah['ayah'])
+                                        metadata['verse_number'] = verse_number
+                                        metadata['ayah'] = verse_number
                                     
                                     # Extract Arabic text
                                     if 'arabic' in ayah:
@@ -651,14 +652,18 @@ def test_search():
                 # Format verse reference
                 verse_reference = ""
                 if chapter and verse_number:
-                    # Try to get surah name if available
+                    # Try to get surah names if available
                     surah_name_english = metadata.get('surah_name_english', '')
-                    if surah_name_english:
-                        verse_reference = f"Surah {surah_name_english} {chapter}:{verse_number}"
+                    surah_name_arabic = metadata.get('surah_name_arabic', '')
+                    
+                    if surah_name_arabic and surah_name_english:
+                        verse_reference = f"Surah {surah_name_arabic} ({surah_name_english}) {int(chapter)}:{int(verse_number)}"
+                    elif surah_name_english:
+                        verse_reference = f"Surah {surah_name_english} {int(chapter)}:{int(verse_number)}"
                     else:
-                        verse_reference = f"Surah {chapter} {chapter}:{verse_number}"
+                        verse_reference = f"Surah {int(chapter)} {int(chapter)}:{int(verse_number)}"
                 elif chapter:
-                    verse_reference = f"Surah {chapter}"
+                    verse_reference = f"Surah {int(chapter)}"
                 
                 relevant_results.append({
                     "rank": i + 1,
