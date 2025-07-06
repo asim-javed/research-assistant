@@ -92,6 +92,18 @@ function App() {
     setInquiries([]);
   };
 
+  const createReferenceSet = () => {
+    setCurrentView("reference-sets");
+    // TODO: Open modal or form to create new reference set
+    console.log("Create Reference Set clicked");
+  };
+
+  const startInquiry = () => {
+    setCurrentView("inquiries");
+    // TODO: Open modal or form to start new inquiry
+    console.log("Start New Inquiry clicked");
+  };
+
   if (currentView === "login") {
     return <LoginForm onLogin={handleLogin} onSignup={handleSignup} message={message} />;
   }
@@ -128,7 +140,7 @@ function App() {
       </nav>
 
       <main className="main-content">
-        {currentView === "dashboard" && <Dashboard referenceSets={referenceSets} inquiries={inquiries} />}
+        {currentView === "dashboard" && <Dashboard referenceSets={referenceSets} inquiries={inquiries} onCreateReferenceSet={createReferenceSet} onStartInquiry={startInquiry} />}
         {currentView === "reference-sets" && <ReferenceSets referenceSets={referenceSets} />}
         {currentView === "inquiries" && <Inquiries inquiries={inquiries} referenceSets={referenceSets} />}
       </main>
@@ -184,7 +196,7 @@ function LoginForm({ onLogin, onSignup, message }) {
   );
 }
 
-function Dashboard({ referenceSets, inquiries }) {
+function Dashboard({ referenceSets, inquiries, onCreateReferenceSet, onStartInquiry }) {
   return (
     <div className="dashboard">
       <h2>Dashboard</h2>
@@ -200,18 +212,23 @@ function Dashboard({ referenceSets, inquiries }) {
       </div>
       <div className="quick-actions">
         <h3>Quick Actions</h3>
-        <button>Create New Reference Set</button>
-        <button>Start New Inquiry</button>
+        <button onClick={onCreateReferenceSet}>Create New Reference Set</button>
+        <button onClick={onStartInquiry}>Start New Inquiry</button>
       </div>
     </div>
   );
 }
 
 function ReferenceSets({ referenceSets }) {
+  const handleCreateClick = () => {
+    // TODO: Open modal or form to create new reference set
+    console.log("Create New Reference Set clicked from Reference Sets page");
+  };
+
   return (
     <div className="reference-sets">
       <h2>Reference Sets</h2>
-      <button className="create-btn">Create New Reference Set</button>
+      <button className="create-btn" onClick={handleCreateClick}>Create New Reference Set</button>
       {referenceSets.length === 0 ? (
         <p>No reference sets yet. Create one to get started!</p>
       ) : (
@@ -229,10 +246,15 @@ function ReferenceSets({ referenceSets }) {
 }
 
 function Inquiries({ inquiries, referenceSets }) {
+  const handleStartClick = () => {
+    // TODO: Open modal or form to start new inquiry
+    console.log("Start New Inquiry clicked from Inquiries page");
+  };
+
   return (
     <div className="inquiries">
       <h2>Lines of Inquiry</h2>
-      <button className="create-btn">Start New Inquiry</button>
+      <button className="create-btn" onClick={handleStartClick}>Start New Inquiry</button>
       {inquiries.length === 0 ? (
         <p>No inquiries yet. Start your first line of inquiry!</p>
       ) : (
