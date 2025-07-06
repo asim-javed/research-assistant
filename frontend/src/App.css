@@ -250,6 +250,22 @@
   cursor: not-allowed;
 }
 
+.delete-btn {
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+  margin-left: 0.5rem;
+}
+
+.delete-btn:hover {
+  background-color: #c0392b;
+}
+
 .upload-message {
   padding: 0.75rem;
   border-radius: 4px;
@@ -394,6 +410,11 @@
   margin-top: 0.75rem;
   padding-top: 0.75rem;
   border-top: 1px solid #e0e0e0;
+}
+
+.inquiry-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .inquiry-actions button {

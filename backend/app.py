@@ -597,6 +597,57 @@ def process_json_file(file_path):
         print(f"Error processing JSON file: {e}")
         return []
 
+@app.route("/api/reference-sets/<ref_set_id>", methods=["DELETE"])
+def delete_reference_set(ref_set_id):
+    """Delete a reference set and all its associated data"""
+    try:
+        # Get current reference sets
+        reference_sets = get_reference_sets()
+        
+        if ref_set_id not in reference_sets:
+            return jsonify({"success": False, "error": "Reference set not found"}), 404
+        
+        # Delete from Pinecone index if available
+        if index:
+            try:
+                # Delete all vectors for this reference set
+                index.delete(filter={"reference_set_id": ref_set_id})
+                print(f"Deleted vectors for reference set {ref_set_id} from Pinecone")
+            except Exception as e:
+                print(f"Error deleting vectors from Pinecone: {e}")
+        
+        # Remove from persistent storage
+        del reference_sets[ref_set_id]
+        db["reference_sets"] = reference_sets
+        
+        print(f"Deleted reference set: {ref_set_id}")
+        return jsonify({"success": True, "message": "Reference set deleted successfully"})
+        
+    except Exception as e:
+        print(f"Error deleting reference set: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/inquiries/<inquiry_id>", methods=["DELETE"])
+def delete_inquiry(inquiry_id):
+    """Delete an inquiry"""
+    try:
+        # Get current inquiries
+        inquiries = get_inquiries()
+        
+        if inquiry_id not in inquiries:
+            return jsonify({"success": False, "error": "Inquiry not found"}), 404
+        
+        # Remove from persistent storage
+        del inquiries[inquiry_id]
+        db["inquiries"] = inquiries
+        
+        print(f"Deleted inquiry: {inquiry_id}")
+        return jsonify({"success": True, "message": "Inquiry deleted successfully"})
+        
+    except Exception as e:
+        print(f"Error deleting inquiry: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @app.route("/api/test-search", methods=["POST"])
 def test_search():
     """Test search functionality without affecting anything"""

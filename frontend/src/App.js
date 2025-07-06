@@ -98,6 +98,28 @@ function App() {
     setShowCreateRefSetModal(true);
   };
 
+  const deleteReferenceSet = async (refSetId) => {
+    if (!window.confirm("Are you sure you want to delete this reference set? This will permanently delete all uploaded documents and cannot be undone.")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/reference-sets/${refSetId}`, {
+        method: "DELETE"
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setMessage("Reference set deleted successfully");
+        loadUserData(); // Reload to update the UI
+      } else {
+        setMessage("Failed to delete reference set: " + data.error);
+      }
+    } catch (error) {
+      setMessage("Error deleting reference set: " + error.message);
+    }
+  };
+
   const startInquiry = () => {
     setShowCreateInquiryModal(true);
   };
@@ -168,6 +190,28 @@ function App() {
     setCurrentView("inquiries");
   };
 
+  const deleteInquiry = async (inquiryId) => {
+    if (!window.confirm("Are you sure you want to delete this inquiry? This will permanently delete all chat history and cannot be undone.")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/inquiries/${inquiryId}`, {
+        method: "DELETE"
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setMessage("Inquiry deleted successfully");
+        loadUserData(); // Reload to update the UI
+      } else {
+        setMessage("Failed to delete inquiry: " + data.error);
+      }
+    } catch (error) {
+      setMessage("Error deleting inquiry: " + error.message);
+    }
+  };
+
   if (currentView === "login") {
     return <LoginForm onLogin={handleLogin} onSignup={handleSignup} message={message} />;
   }
@@ -211,8 +255,8 @@ function App() {
 
       <main className="main-content">
         {currentView === "dashboard" && <Dashboard referenceSets={referenceSets} inquiries={inquiries} onCreateReferenceSet={createReferenceSet} onStartInquiry={startInquiry} />}
-        {currentView === "reference-sets" && <ReferenceSets referenceSets={referenceSets} onCreateReferenceSet={createReferenceSet} />}
-        {currentView === "inquiries" && <Inquiries inquiries={inquiries} referenceSets={referenceSets} onStartInquiry={startInquiry} onOpenInquiry={openInquiry} />}
+        {currentView === "reference-sets" && <ReferenceSets referenceSets={referenceSets} onCreateReferenceSet={createReferenceSet} onDeleteReferenceSet={deleteReferenceSet} />}
+        {currentView === "inquiries" && <Inquiries inquiries={inquiries} referenceSets={referenceSets} onStartInquiry={startInquiry} onOpenInquiry={openInquiry} onDeleteInquiry={deleteInquiry} />}
         {currentView === "test" && <TestSearch referenceSets={referenceSets} />}
         {currentView === "chat" && activeInquiry && <InquiryChat inquiry={activeInquiry} onClose={closeInquiry} />}
       </main>
@@ -306,7 +350,7 @@ function Dashboard({ referenceSets, inquiries, onCreateReferenceSet, onStartInqu
   );
 }
 
-function ReferenceSets({ referenceSets, onCreateReferenceSet }) {
+function ReferenceSets({ referenceSets, onCreateReferenceSet, onDeleteReferenceSet }) {
   const [selectedRefSet, setSelectedRefSet] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState("");
@@ -382,6 +426,12 @@ function ReferenceSets({ referenceSets, onCreateReferenceSet }) {
                 >
                   {uploading ? 'Processing...' : 'Upload Document'}
                 </button>
+                <button 
+                  onClick={() => onDeleteReferenceSet(set.id)}
+                  className="delete-btn"
+                >
+                  Delete
+                </button>
               </div>
             </div>
           ))}
@@ -391,7 +441,7 @@ function ReferenceSets({ referenceSets, onCreateReferenceSet }) {
   );
 }
 
-function Inquiries({ inquiries, referenceSets, onStartInquiry, onOpenInquiry }) {
+function Inquiries({ inquiries, referenceSets, onStartInquiry, onOpenInquiry, onDeleteInquiry }) {
   return (
     <div className="inquiries">
       <h2>Lines of Inquiry</h2>
@@ -407,6 +457,12 @@ function Inquiries({ inquiries, referenceSets, onStartInquiry, onOpenInquiry }) 
               <div className="inquiry-actions">
                 <button onClick={(e) => { e.stopPropagation(); onOpenInquiry(inquiry); }}>
                   Open Chat
+                </button>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onDeleteInquiry(inquiry.id); }}
+                  className="delete-btn"
+                >
+                  Delete
                 </button>
               </div>
             </div>
