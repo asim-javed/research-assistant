@@ -432,12 +432,6 @@ function ReferenceSets({ referenceSets, onCreateReferenceSet, onDeleteReferenceS
                 >
                   Delete
                 </button>
-                <button 
-                  onClick={() => onDeleteReferenceSet(set.id)}
-                  className="delete-btn"
-                >
-                  Delete
-                </button>
               </div>
             </div>
           ))}
