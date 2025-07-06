@@ -1,0 +1,44 @@
+[
+  {
+    "Surah Number": 1,
+    "Surah Name English": "Al-Fatiha",
+    "Surah Name Arabic": "الفاتحة",
+    "ayahs": [
+      {
+        "ayah": 1,
+        "arabic": "بِسْمِ اللَّهِ الرَّحْمَـٰنِ الرَّحِيمِ",
+        "Clear Quran English": "In the name of Allah, the Gracious, the Merciful."
+      },
+      {
+        "ayah": 2,
+        "arabic": "الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ",
+        "Clear Quran English": "Praise be to Allah, Lord of the Worlds."
+      },
+      {
+        "ayah": 3,
+        "arabic": "الرَّحْمَـٰنِ الرَّحِيمِ",
+        "Clear Quran English": "The Most Gracious, the Most Merciful."
+      },
+      {
+        "ayah": 4,
+        "arabic": "مَالِكِ يَوْمِ الدِّينِ",
+        "Clear Quran English": "Master of the Day of Judgment."
+      },
+      {
+        "ayah": 5,
+        "arabic": "إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ",
+        "Clear Quran English": "It is You we worship, and upon You we call for help."
+      },
+      {
+        "ayah": 6,
+        "arabic": "اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ",
+        "Clear Quran English": "Guide us to the straight path."
+      },
+      {
+        "ayah": 7,
+        "arabic": "صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ الْمَغْضُوبِ عَلَيْهِمْ وَلَا الضَّالِّينَ",
+        "Clear Quran English": "The path of those You have blessed, not of those against whom there is anger, nor of those who are misguided."
+      }
+    ]
+  },
+]
