@@ -4,7 +4,7 @@ from flask_cors import CORS
 import os
 from dotenv import load_dotenv
 from supabase import create_client, Client
-import pinecone
+from pinecone import Pinecone
 import openai
 
 load_dotenv()
@@ -18,6 +18,7 @@ supabase_key = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(supabase_url, supabase_key)
 
 pinecone_api_key = os.getenv("PINECONE_API_KEY")
+pinecone_client = Pinecone(api_key=pinecone_api_key) if pinecone_api_key else None
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 @app.route("/api/hello")
