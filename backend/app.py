@@ -118,7 +118,8 @@ def signup():
 def api_get_reference_sets():
     # Return stored reference sets
     reference_sets_dict = get_reference_sets()
-    reference_sets_list = list(reference_sets_dict.values())
+    # Convert ObservedDict objects to regular dicts for JSON serialization
+    reference_sets_list = [dict(ref_set) for ref_set in reference_sets_dict.values()]
     return jsonify({"reference_sets": reference_sets_list})
 
 @app.route("/api/reference-sets", methods=["POST"])
@@ -149,7 +150,8 @@ def create_reference_set():
 def api_get_inquiries():
     # Return stored inquiries
     inquiries_dict = get_inquiries()
-    inquiries_list = list(inquiries_dict.values())
+    # Convert ObservedDict objects to regular dicts for JSON serialization
+    inquiries_list = [dict(inquiry) for inquiry in inquiries_dict.values()]
     return jsonify({"inquiries": inquiries_list})
 
 @app.route("/api/inquiries", methods=["POST"])
