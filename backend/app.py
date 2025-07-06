@@ -415,6 +415,21 @@ def process_jsonl_file(file_path):
                                 text_parts.append(f"{lang}: {text}")
                                 structured_content['metadata'][f'verse_{lang}'] = text
 
+                    # Handle Quran verse structure with ayah, arabic, and English translation
+                    if 'ayah' in json_obj:
+                        structured_content['metadata']['content_type'] = 'verse'
+                        structured_content['metadata']['verse_number'] = json_obj['ayah']
+                        
+                        # Store Arabic text
+                        if 'arabic' in json_obj:
+                            structured_content['metadata']['arabic'] = json_obj['arabic']
+                            text_parts.append(f"Arabic: {json_obj['arabic']}")
+                        
+                        # Store English translation from "Clear Quran English"
+                        if 'Clear Quran English' in json_obj:
+                            structured_content['metadata']['english'] = json_obj['Clear Quran English']
+                            text_parts.append(f"English: {json_obj['Clear Quran English']}")
+
                     # Handle translations
                     for lang_field in ['arabic', 'english', 'translation']:
                         if lang_field in json_obj:
