@@ -8,6 +8,8 @@ function App() {
   const [referenceSets, setReferenceSets] = useState([]);
   const [inquiries, setInquiries] = useState([]);
   const [message, setMessage] = useState("");
+  const [showCreateRefSetModal, setShowCreateRefSetModal] = useState(false);
+  const [showCreateInquiryModal, setShowCreateInquiryModal] = useState(false);
 
   useEffect(() => {
     // Check if user is logged in
@@ -93,15 +95,55 @@ function App() {
   };
 
   const createReferenceSet = () => {
-    setCurrentView("reference-sets");
-    // TODO: Open modal or form to create new reference set
-    console.log("Create Reference Set clicked");
+    setShowCreateRefSetModal(true);
   };
 
   const startInquiry = () => {
-    setCurrentView("inquiries");
-    // TODO: Open modal or form to start new inquiry
-    console.log("Start New Inquiry clicked");
+    setShowCreateInquiryModal(true);
+  };
+
+  const handleCreateReferenceSet = async (name, description) => {
+    try {
+      const response = await fetch("/api/reference-sets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, description })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        // Reload data to get the new reference set
+        loadUserData();
+        setShowCreateRefSetModal(false);
+        setCurrentView("reference-sets");
+      } else {
+        setMessage("Failed to create reference set: " + data.error);
+      }
+    } catch (error) {
+      setMessage("Error creating reference set: " + error.message);
+    }
+  };
+
+  const handleCreateInquiry = async (title, description) => {
+    try {
+      const response = await fetch("/api/inquiries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, description })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        // Reload data to get the new inquiry
+        loadUserData();
+        setShowCreateInquiryModal(false);
+        setCurrentView("inquiries");
+      } else {
+        setMessage("Failed to create inquiry: " + data.error);
+      }
+    } catch (error) {
+      setMessage("Error creating inquiry: " + error.message);
+    }
   };
 
   if (currentView === "login") {
@@ -141,9 +183,23 @@ function App() {
 
       <main className="main-content">
         {currentView === "dashboard" && <Dashboard referenceSets={referenceSets} inquiries={inquiries} onCreateReferenceSet={createReferenceSet} onStartInquiry={startInquiry} />}
-        {currentView === "reference-sets" && <ReferenceSets referenceSets={referenceSets} />}
-        {currentView === "inquiries" && <Inquiries inquiries={inquiries} referenceSets={referenceSets} />}
+        {currentView === "reference-sets" && <ReferenceSets referenceSets={referenceSets} onCreateReferenceSet={createReferenceSet} />}
+        {currentView === "inquiries" && <Inquiries inquiries={inquiries} referenceSets={referenceSets} onStartInquiry={startInquiry} />}
       </main>
+
+      {showCreateRefSetModal && (
+        <CreateReferenceSetModal 
+          onClose={() => setShowCreateRefSetModal(false)}
+          onSubmit={handleCreateReferenceSet}
+        />
+      )}
+
+      {showCreateInquiryModal && (
+        <CreateInquiryModal 
+          onClose={() => setShowCreateInquiryModal(false)}
+          onSubmit={handleCreateInquiry}
+        />
+      )}
     </div>
   );
 }
@@ -219,16 +275,11 @@ function Dashboard({ referenceSets, inquiries, onCreateReferenceSet, onStartInqu
   );
 }
 
-function ReferenceSets({ referenceSets }) {
-  const handleCreateClick = () => {
-    // TODO: Open modal or form to create new reference set
-    console.log("Create New Reference Set clicked from Reference Sets page");
-  };
-
+function ReferenceSets({ referenceSets, onCreateReferenceSet }) {
   return (
     <div className="reference-sets">
       <h2>Reference Sets</h2>
-      <button className="create-btn" onClick={handleCreateClick}>Create New Reference Set</button>
+      <button className="create-btn" onClick={onCreateReferenceSet}>Create New Reference Set</button>
       {referenceSets.length === 0 ? (
         <p>No reference sets yet. Create one to get started!</p>
       ) : (
@@ -245,16 +296,11 @@ function ReferenceSets({ referenceSets }) {
   );
 }
 
-function Inquiries({ inquiries, referenceSets }) {
-  const handleStartClick = () => {
-    // TODO: Open modal or form to start new inquiry
-    console.log("Start New Inquiry clicked from Inquiries page");
-  };
-
+function Inquiries({ inquiries, referenceSets, onStartInquiry }) {
   return (
     <div className="inquiries">
       <h2>Lines of Inquiry</h2>
-      <button className="create-btn" onClick={handleStartClick}>Start New Inquiry</button>
+      <button className="create-btn" onClick={onStartInquiry}>Start New Inquiry</button>
       {inquiries.length === 0 ? (
         <p>No inquiries yet. Start your first line of inquiry!</p>
       ) : (
@@ -267,6 +313,84 @@ function Inquiries({ inquiries, referenceSets }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function CreateReferenceSetModal({ onClose, onSubmit }) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (name.trim()) {
+      onSubmit(name.trim(), description.trim());
+    }
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal">
+        <h3>Create New Reference Set</h3>
+        <form onSubmit={handleSubmit}>
+          <input
+            type="text"
+            placeholder="Reference Set Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+          <textarea
+            placeholder="Description (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows="3"
+          />
+          <div className="modal-buttons">
+            <button type="button" onClick={onClose}>Cancel</button>
+            <button type="submit">Create</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function CreateInquiryModal({ onClose, onSubmit }) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (title.trim()) {
+      onSubmit(title.trim(), description.trim());
+    }
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal">
+        <h3>Start New Inquiry</h3>
+        <form onSubmit={handleSubmit}>
+          <input
+            type="text"
+            placeholder="Inquiry Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+          />
+          <textarea
+            placeholder="Description (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows="3"
+          />
+          <div className="modal-buttons">
+            <button type="button" onClick={onClose}>Cancel</button>
+            <button type="submit">Start Inquiry</button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

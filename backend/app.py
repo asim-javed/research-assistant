@@ -51,27 +51,47 @@ def signup():
 
 @app.route("/api/reference-sets", methods=["GET"])
 def get_reference_sets():
-    # Get user's reference sets
-    # This will be implemented once you have auth working
-    return jsonify({"reference_sets": []})
+    # For now, return mock data - in a real app you'd get from Supabase based on user ID
+    mock_data = [
+        {"id": "1", "name": "Sample Reference Set", "description": "A sample reference set for testing"}
+    ]
+    return jsonify({"reference_sets": mock_data})
 
 @app.route("/api/reference-sets", methods=["POST"])
 def create_reference_set():
     data = request.get_json()
-    # Create new reference set
-    # This will store in Supabase
-    return jsonify({"success": True, "message": "Reference set created"})
+    name = data.get("name", "").strip()
+    description = data.get("description", "").strip()
+    
+    if not name:
+        return jsonify({"success": False, "error": "Name is required"}), 400
+    
+    # In a real app, you'd save to Supabase here
+    # For now, just return success
+    print(f"Creating reference set: {name} - {description}")
+    return jsonify({"success": True, "message": "Reference set created", "id": "new_id"})
 
 @app.route("/api/inquiries", methods=["GET"])
 def get_inquiries():
-    # Get user's lines of inquiry
-    return jsonify({"inquiries": []})
+    # For now, return mock data - in a real app you'd get from Supabase based on user ID
+    mock_data = [
+        {"id": "1", "title": "Sample Inquiry", "description": "A sample inquiry for testing"}
+    ]
+    return jsonify({"inquiries": mock_data})
 
 @app.route("/api/inquiries", methods=["POST"])
 def create_inquiry():
     data = request.get_json()
-    # Start new line of inquiry
-    return jsonify({"success": True, "inquiry_id": "temp_id"})
+    title = data.get("title", "").strip()
+    description = data.get("description", "").strip()
+    
+    if not title:
+        return jsonify({"success": False, "error": "Title is required"}), 400
+    
+    # In a real app, you'd save to Supabase here
+    # For now, just return success
+    print(f"Creating inquiry: {title} - {description}")
+    return jsonify({"success": True, "message": "Inquiry created", "inquiry_id": "new_inquiry_id"})
 
 @app.route("/api/upload", methods=["POST"])
 def upload_file():
