@@ -542,7 +542,7 @@ function TestSearch({ referenceSets }) {
                 type="number" 
                 min="0" 
                 max="1" 
-                step="0.1" 
+                step="0.01" 
                 value={minScore} 
                 onChange={(e) => setMinScore(parseFloat(e.target.value))}
                 className="param-input"
